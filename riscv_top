@@ -1,0 +1,87 @@
+module riscv_top(
+    input clk,
+    input reset,
+    output [31:0] pc,
+    output [31:0] instruction,
+    output [31:0] ALUResult,
+    output [31:0] write_back_data,
+    output [31:0] register_data1,
+    output [31:0] register_data2,
+    output [2:0] ALUControl,
+    output RegWrite,
+    output MemWrite,
+    output MemRead,
+    output Branch
+);
+wire [31:0] pc_plus_4;
+wire [31:0] next_pc;
+wire [6:0] opcode;
+wire [4:0] rs1, rs2, rd;
+wire [2:0] funct3;
+wire funct7;
+wire ALUSrc, MemToReg;
+wire [1:0] ALUOp;
+wire [31:0] immediate;
+wire [31:0] ALUInputB;
+wire Zero;
+wire [31:0] memory_data;
+wire [31:0] register_write_data;
+wire [31:0] branch_target;
+
+assign pc_plus_4 = pc + 32'd4;
+assign opcode = instruction[6:0];
+assign rd = instruction[11:7];
+assign funct3 = instruction[14:12];
+assign rs1 = instruction[19:15];
+assign rs2 = instruction[24:20];
+assign funct7 = instruction[30];
+
+program_counter PC0(.clk(clk), .reset(reset), .next_pc(next_pc), .pc(pc));
+instruction_memory IM0(.address(pc), .instruction(instruction));
+
+control_unit CU0(
+    .opcode(opcode), .RegWrite(RegWrite), .MemWrite(MemWrite),
+    .MemRead(MemRead), .ALUSrc(ALUSrc), .MemToReg(MemToReg),
+    .Branch(Branch), .ALUOp(ALUOp)
+);
+
+register_file RF0(
+    .clk(clk), .reset(reset), .RegWrite(RegWrite),
+    .rs1(rs1), .rs2(rs2), .rd(rd),
+    .write_data(register_write_data),
+    .read_data1(register_data1), .read_data2(register_data2)
+);
+
+immediate_generator IG0(.instruction(instruction), .immediate(immediate));
+
+alu_control AC0(
+    .ALUOp(ALUOp), .funct3(funct3), .funct7(funct7),
+    .ALUControl(ALUControl)
+);
+
+mux MUX_ALU(
+    .input0(register_data2), .input1(immediate),
+    .select(ALUSrc), .output_data(ALUInputB)
+);
+
+alu ALU0(
+    .A(register_data1), .B(ALUInputB),
+    .ALUControl(ALUControl), .ALUResult(ALUResult), .Zero(Zero)
+);
+
+data_memory DM0(
+    .clk(clk), .reset(reset), .MemWrite(MemWrite), .MemRead(MemRead),
+    .address(ALUResult), .write_data(register_data2), .read_data(memory_data)
+);
+
+mux MUX_WB(
+    .input0(ALUResult), .input1(memory_data),
+    .select(MemToReg), .output_data(register_write_data)
+);
+
+assign branch_target = pc + immediate;
+assign next_pc = (Branch && Zero) ? branch_target : pc_plus_4;
+
+assign write_back_data = register_write_data;
+
+endmodule

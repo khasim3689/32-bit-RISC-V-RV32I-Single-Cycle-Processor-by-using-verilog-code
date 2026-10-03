@@ -1,0 +1,45 @@
+module riscv_tb;
+
+reg clk;
+reg reset;
+
+wire [31:0] pc;
+wire [31:0] instruction;
+wire [31:0] ALUResult;
+wire [31:0] write_back_data;
+wire [31:0] register_data1;
+wire [31:0] register_data2;
+wire [2:0] ALUControl;
+wire RegWrite;
+wire MemWrite;
+wire MemRead;
+wire Branch;
+
+riscv_top uut(
+    .clk(clk),
+    .reset(reset),
+    .pc(pc),
+    .instruction(instruction),
+    .ALUResult(ALUResult),
+    .write_back_data(write_back_data),
+    .register_data1(register_data1),
+    .register_data2(register_data2),
+    .ALUControl(ALUControl),
+    .RegWrite(RegWrite),
+    .MemWrite(MemWrite),
+    .MemRead(MemRead),
+    .Branch(Branch)
+);
+
+initial clk = 1'b0;
+always #5 clk = ~clk;
+
+initial begin
+    reset = 1'b1;
+    #20;
+    reset = 1'b0;
+    #150;
+    $finish;
+end
+
+endmodule
